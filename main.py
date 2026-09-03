@@ -134,7 +134,11 @@ main_df = pd.DataFrame()
 if uploaded_main_file:
     main_df = pd.read_excel(uploaded_main_file)
     main_df = clean_coords(main_df)
-    main_df['Distance(M)'] = pd.to_numeric(main_df.get('Distance(M)', 0), errors='coerce').fillna(0)
+    
+    if 'Distance(M)' not in main_df.columns:
+        main_df['Distance(M)'] = 0.0
+    main_df['Distance(M)'] = pd.to_numeric(main_df['Distance(M)'], errors='coerce').fillna(0)
+    
     main_df['Status_Clean'] = main_df.get('Status', '').astype(str).str.strip().str.lower()
     main_df['Cable_Type_Clean'] = main_df.get('Cable Type', '').astype(str).str.strip().str.lower()
     main_df['Map_Tooltip'] = main_df['Site_Code'].astype(str) + " -> " + main_df['Site_B'].astype(str) + " (" + main_df['Cable Type'].astype(str) + ") | ระยะทาง: " + main_df['Distance(M)'].astype(str) + " ม."
@@ -145,21 +149,27 @@ st.sidebar.markdown("### Check Route Overlap")
 with st.sidebar.expander("Manual Check", expanded=True):
     st.caption("รูปแบบ: Lat, Long (เช่น 15.507, 102.330)")
     
-    col_s1, col_s2 = st.columns([3, 1])
-    with col_s1:
-        m_start_val = st.text_input("Lat/Long Start", placeholder="Lat, Lon", key="m_start_val")
-    with col_s2:
-        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-        if st.button("📍", key="get_start", help="Get Current Location"):
-            st.info("💡 การดึง GPS มือถือ ต้องใช้ไลบรารีเสริม เช่น streamlit-geolocation")
-            
-    col_e1, col_e2 = st.columns([3, 1])
-    with col_e1:
-        m_stop_val = st.text_input("Lat/Long Stop", placeholder="Lat, Lon", key="m_stop_val")
-    with col_e2:
-        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-        if st.button("📍", key="get_stop", help="Get Current Location"):
-            st.info("💡 การดึง GPS มือถือ ต้องใช้ไลบรารีเสริม เช่น streamlit-geolocation")
+    # --- จุดเริ่มต้น (Start) ---
+    st.markdown("**📍 พิกัดเริ่มต้น (Start)**")
+    loc_start = streamlit_geolocation(key="loc_start")
+    default_start = ""
+    if loc_start and loc_start.get('latitude') is not None:
+        default_start = f"{loc_start['latitude']}, {loc_start['longitude']}"
+        
+    m_start_val = st.text_input("Lat/Long Start", value=default_start, placeholder="Lat, Lon", key="m_start_input")
+    
+    st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+    
+    # --- จุดสิ้นสุด (Stop) ---
+    st.markdown("**📍 พิกัดสิ้นสุด (Stop)**")
+    loc_stop = streamlit_geolocation(key="loc_stop")
+    default_stop = ""
+    if loc_stop and loc_stop.get('latitude') is not None:
+        default_stop = f"{loc_stop['latitude']}, {loc_stop['longitude']}"
+        
+    m_stop_val = st.text_input("Lat/Long Stop", value=default_stop, placeholder="Lat, Lon", key="m_stop_input")
+    
+    st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
     if st.button("Check Overlap", type="primary", use_container_width=True):
         if not main_df.empty and m_start_val and m_stop_val:
@@ -220,37 +230,27 @@ st.title("Cable Replacement Dashboard")
 if main_df.empty:
     st.info("👈 กรุณาอัปโหลดไฟล์ Excel ภาพรวมข้อมูล ที่ Sidebar ด้านซ้ายเพื่อเริ่มต้นใช้งาน")
 else:
-    # ---------------------------------------------
-    # โหมด 1: Dashboard ภาพรวม
-    # ---------------------------------------------
     if st.session_state.view_mode == 'dashboard':
         
-        # -----------------------------------------------------
-        # [อัปเดตแก้บั๊ก] ตรวจสอบและแบ่งกลุ่ม Zone อย่างละเอียด
-        # -----------------------------------------------------
         use_3_col_layout = False
         
         if 'Zone' in main_df.columns:
             unique_raw_zones = [str(z).strip().upper() for z in main_df['Zone'].unique() if pd.notna(z) and str(z).strip() != '']
             
             if len(unique_raw_zones) == 1 and unique_raw_zones[0] == 'NMA':
-                # มีแต่ NMA อย่างเดียว -> กลับไปใช้เงื่อนไขตอนแรก (Record by + Location)
                 with st.spinner("กำลังตรวจสอบและกระจายพื้นที่ย่อย..."):
                     main_df['Calculated_Zone'] = main_df.apply(assign_zone, axis=1)
                 use_3_col_layout = True
             else:
-                # มีโซนอื่นผสมมาด้วย (เช่น ALL ZONE) -> ยึดคอลัมน์ Zone แล้วโชว์หน้าเดียว
                 main_df['Calculated_Zone'] = main_df['Zone'].astype(str).str.strip().str.upper()
                 use_3_col_layout = False
         else:
-            # ไม่มีคอลัมน์ Zone -> ใช้เงื่อนไขตอนแรก (Record by + Location)
             with st.spinner("กำลังตรวจสอบและกระจายพื้นที่ย่อย..."):
                 main_df['Calculated_Zone'] = main_df.apply(assign_zone, axis=1)
             use_3_col_layout = True
 
         def create_map(df_zone):
             if df_zone.empty:
-                # ถ้าไม่มีข้อมูล ให้โชว์แผนที่ว่างๆ แต่ซูมระดับภูมิภาค (zoom_start=7) เพื่อไม่ให้ดูแปลก
                 return folium.Map(location=[15.8700, 101.5000], zoom_start=7)
             
             center_lat = df_zone['Lat_Start'].mean()
@@ -345,7 +345,7 @@ else:
             st.dataframe(df_display.drop(columns=['Map_Tooltip', 'Calculated_Zone', 'Status_Clean', 'Cable_Type_Clean'], errors='ignore'))
 
         # ==============================================
-        # กรณี 2: มีโซนอื่นๆ (แสดงแผนที่หน้าเดียว + Filter)
+        # กรณี 2: มีโซนอื่นๆ (แสดงแผนที่หน้าเดียว + Dynamic Filter)
         # ==============================================
         else:
             st.markdown("### 🗺️ Dashboard แผนที่ภาพรวม")
@@ -497,7 +497,7 @@ else:
                 use_container_width=True,
                 on_select="rerun",           
                 selection_mode="single-row", 
-                key="overlap_table"          
+                key="overlap_table"          ...
             )
             
             output = io.BytesIO()
