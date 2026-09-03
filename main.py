@@ -497,7 +497,7 @@ else:
                 use_container_width=True,
                 on_select="rerun",           
                 selection_mode="single-row", 
-                key="overlap_table"          ...
+                key="overlap_table"          
             )
             
             output = io.BytesIO()
