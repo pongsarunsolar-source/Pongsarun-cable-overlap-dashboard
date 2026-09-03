@@ -1,11 +1,7 @@
 streamlit
+pandas
 folium
 streamlit-folium
-pillow
-easyocr
-numpy
+geopy
+openpyxl
 requests
-python-pptx
-google-genai
-lxml
-pandas
