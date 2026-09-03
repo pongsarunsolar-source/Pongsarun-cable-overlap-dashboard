@@ -7,6 +7,7 @@ from geopy.distance import geodesic
 import math
 import io
 import requests
+from streamlit_geolocation import streamlit_geolocation
 
 # ==========================================
 # 1. ตั้งค่าหน้าจอ
