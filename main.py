@@ -149,25 +149,19 @@ st.sidebar.markdown("### Check Route Overlap")
 with st.sidebar.expander("Manual Check", expanded=True):
     st.caption("รูปแบบ: Lat, Long (เช่น 15.507, 102.330)")
     
-    # --- จุดเริ่มต้น (Start) ---
-    st.markdown("**📍 พิกัดเริ่มต้น (Start)**")
-    loc_start = streamlit_geolocation(key="loc_start")
-    default_start = ""
-    if loc_start and loc_start.get('latitude') is not None:
-        default_start = f"{loc_start['latitude']}, {loc_start['longitude']}"
-        
-    m_start_val = st.text_input("Lat/Long Start", value=default_start, placeholder="Lat, Lon", key="m_start_input")
+    # --- ดึงพิกัด (GPS ตัวเดียว) ---
+    st.markdown("**📍 ดึงพิกัดปัจจุบันของคุณ**")
+    loc = streamlit_geolocation()
     
+    default_loc = ""
+    if loc and loc.get('latitude') is not None:
+        default_loc = f"{loc['latitude']}, {loc['longitude']}"
+        
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
-    # --- จุดสิ้นสุด (Stop) ---
-    st.markdown("**📍 พิกัดสิ้นสุด (Stop)**")
-    loc_stop = streamlit_geolocation(key="loc_stop")
-    default_stop = ""
-    if loc_stop and loc_stop.get('latitude') is not None:
-        default_stop = f"{loc_stop['latitude']}, {loc_stop['longitude']}"
-        
-    m_stop_val = st.text_input("Lat/Long Stop", value=default_stop, placeholder="Lat, Lon", key="m_stop_input")
+    # --- ช่องกรอกพิกัด ---
+    m_start_val = st.text_input("Lat/Long Start", value=default_loc, placeholder="Lat, Lon", key="m_start_input")
+    m_stop_val = st.text_input("Lat/Long Stop", placeholder="Lat, Lon", key="m_stop_input")
     
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
@@ -269,9 +263,6 @@ else:
                 folium.PolyLine(locations=route_coords, color=line_color, weight=4, opacity=0.7, tooltip=row['Map_Tooltip']).add_to(m)
             return m
 
-        # ==============================================
-        # กรณี 1: มีแค่ NMA อย่างเดียว (แยก 3 คอลัมน์)
-        # ==============================================
         if use_3_col_layout:
             df_nma = main_df[main_df['Calculated_Zone'] == 'NMA']
             df_cpm = main_df[main_df['Calculated_Zone'] == 'CPM']
@@ -344,9 +335,6 @@ else:
                 
             st.dataframe(df_display.drop(columns=['Map_Tooltip', 'Calculated_Zone', 'Status_Clean', 'Cable_Type_Clean'], errors='ignore'))
 
-        # ==============================================
-        # กรณี 2: มีโซนอื่นๆ (แสดงแผนที่หน้าเดียว + Dynamic Filter)
-        # ==============================================
         else:
             st.markdown("### 🗺️ Dashboard แผนที่ภาพรวม")
             
@@ -423,9 +411,6 @@ else:
                 
             st.dataframe(df_display.drop(columns=['Map_Tooltip', 'Calculated_Zone', 'Status_Clean', 'Cable_Type_Clean'], errors='ignore'))
 
-    # ---------------------------------------------
-    # โหมด 2: ผลการตรวจสอบการทับซ้อน (Overlap Check)
-    # ---------------------------------------------
     elif st.session_state.view_mode == 'overlap':
         st.subheader("⚠️ ผลการตรวจสอบการทับซ้อน (Overlap Check)")
         
