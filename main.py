@@ -123,11 +123,11 @@ if 'prev_clicks' not in st.session_state:
 if 'current_filter' not in st.session_state:
     st.session_state.current_filter = None
 
-# เก็บค่า Text box
-if 'temp_start_val' not in st.session_state:
-    st.session_state.temp_start_val = ""
-if 'temp_stop_val' not in st.session_state:
-    st.session_state.temp_stop_val = ""
+# สร้างคีย์สำหรับ Text box ให้พร้อมตั้งแต่แรก
+if 'm_start_input' not in st.session_state:
+    st.session_state.m_start_input = ""
+if 'm_stop_input' not in st.session_state:
+    st.session_state.m_stop_input = ""
 
 # ==========================================
 # 4. ส่วน Sidebar
@@ -155,7 +155,7 @@ st.sidebar.markdown("### Check Route Overlap")
 with st.sidebar.expander("Manual Check", expanded=True):
     st.caption("รูปแบบ: Lat, Long (เช่น 15.507, 102.330)")
     
-    # --- 1. ส่วนดึงพิกัด (GPS ตัวเดียว) ---
+    # --- 1. ส่วนดึงพิกัด (GPS) ---
     st.markdown("**📍 ดึงพิกัดมือถือ (GPS)**")
     gps_target = st.radio(
         "เลือกช่องที่ต้องการนำพิกัดไปใส่:",
@@ -165,44 +165,46 @@ with st.sidebar.expander("Manual Check", expanded=True):
     loc = streamlit_geolocation()
     if loc and loc.get('latitude') is not None:
         new_gps = f"{loc['latitude']}, {loc['longitude']}"
-        if gps_target == "จุดเริ่มต้น (Start)" and new_gps != st.session_state.temp_start_val:
-            st.session_state.temp_start_val = new_gps
-            st.rerun()
-        elif gps_target == "จุดสิ้นสุด (Stop)" and new_gps != st.session_state.temp_stop_val:
-            st.session_state.temp_stop_val = new_gps
-            st.rerun()
+        
+        # ถ้ายิง GPS สำเร็จ ให้เอาค่าไปยัดใส่ Session State คีย์นั้นๆ โดยตรง
+        if gps_target == "จุดเริ่มต้น (Start)":
+            if st.session_state.m_start_input != new_gps:
+                st.session_state.m_start_input = new_gps
+                st.rerun()
+        elif gps_target == "จุดสิ้นสุด (Stop)":
+            if st.session_state.m_stop_input != new_gps:
+                st.session_state.m_stop_input = new_gps
+                st.rerun()
             
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
-    # --- 2. ส่วนกรอกและแก้ไขตัวเลข ---
+    # --- 2. ส่วนช่อง Text Box ---
     st.markdown("**จุดเริ่มต้น (Start)**")
+    # ผูกตัว Text Box เข้ากับคีย์ m_start_input โดยตรง ไม่ต้องใช้ value= แล้ว
     m_start_val = st.text_input(
         "Lat/Long Start", 
-        value=st.session_state.temp_start_val, 
         placeholder="Lat, Lon", 
         key="m_start_input",
         label_visibility="collapsed"
     )
-    st.session_state.temp_start_val = m_start_val
     
     st.markdown("**จุดสิ้นสุด (Stop)**")
+    # ผูกตัว Text Box เข้ากับคีย์ m_stop_input โดยตรง
     m_stop_val = st.text_input(
         "Lat/Long Stop", 
-        value=st.session_state.temp_stop_val, 
         placeholder="Lat, Lon", 
         key="m_stop_input",
         label_visibility="collapsed"
     )
-    st.session_state.temp_stop_val = m_stop_val
     
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
     # --- 3. ปุ่มประมวลผล ---
     if st.button("Check Overlap", type="primary", use_container_width=True):
-        if not main_df.empty and st.session_state.temp_start_val and st.session_state.temp_stop_val:
+        if not main_df.empty and m_start_val and m_stop_val:
             try:
-                s_parts = st.session_state.temp_start_val.split(',')
-                e_parts = st.session_state.temp_stop_val.split(',')
+                s_parts = m_start_val.split(',')
+                e_parts = m_stop_val.split(',')
                 new_start = (float(s_parts[0].strip()), float(s_parts[1].strip()))
                 new_stop = (float(e_parts[0].strip()), float(e_parts[1].strip()))
                 
