@@ -108,7 +108,7 @@ def clean_coords(df):
     return df.dropna(subset=['Lat_Start', 'Lon_Start', 'Lat_Stop', 'Lon_Stop'])
 
 # ==========================================
-# 3. ตั้งค่า Session State
+# 3. ตั้งค่า Session State (เพิ่ม State สำหรับเก็บค่า Text Box)
 # ==========================================
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = 'dashboard' 
@@ -122,6 +122,12 @@ if 'prev_clicks' not in st.session_state:
     st.session_state.prev_clicks = {'nma': None, 'cpm': None, 'pkg': None, 'large': None}
 if 'current_filter' not in st.session_state:
     st.session_state.current_filter = None
+
+# ป้องกันค่าใน Text box หายเวลาจอกระพริบ
+if 'temp_start_val' not in st.session_state:
+    st.session_state.temp_start_val = ""
+if 'temp_stop_val' not in st.session_state:
+    st.session_state.temp_stop_val = ""
 
 # ==========================================
 # 4. ส่วน Sidebar
@@ -149,27 +155,73 @@ st.sidebar.markdown("### Check Route Overlap")
 with st.sidebar.expander("Manual Check", expanded=True):
     st.caption("รูปแบบ: Lat, Long (เช่น 15.507, 102.330)")
     
-    # --- ดึงพิกัด (GPS ตัวเดียว) ---
-    st.markdown("**📍 ดึงพิกัดปัจจุบันของคุณ**")
-    loc = streamlit_geolocation()
+    # ---------------------------------------------
+    # ส่วนรับค่าพิกัดเริ่มต้น (Start)
+    # ---------------------------------------------
+    st.markdown("**📍 พิกัดเริ่มต้น (Start)**")
     
-    default_loc = ""
-    if loc and loc.get('latitude') is not None:
-        default_loc = f"{loc['latitude']}, {loc['longitude']}"
+    # จัดเลย์เอาต์ปุ่ม GPS ให้อยู่ข้างกล่องข้อความ
+    col_start_txt, col_start_gps = st.columns([5, 1])
+    
+    with col_start_txt:
+        # กล่อง Text ให้ผู้ใช้พิมพ์แก้ได้อิสระ
+        m_start_val = st.text_input(
+            "Lat/Long Start", 
+            value=st.session_state.temp_start_val, 
+            placeholder="Lat, Lon", 
+            key="m_start_input",
+            label_visibility="collapsed"
+        )
+        # อัปเดต State ตลอดเวลาเผื่อพิมพ์แก้เอง
+        st.session_state.temp_start_val = m_start_val
         
+    with col_start_gps:
+        # ปุ่มดึง GPS เฉพาะจุด Start
+        loc_start = streamlit_geolocation()
+        if loc_start and loc_start.get('latitude') is not None:
+            # ถ้ายอมกดดึง GPS ให้เอาค่าใหม่ไปทับในกล่อง Text อัตโนมัติ
+            new_start_gps = f"{loc_start['latitude']}, {loc_start['longitude']}"
+            if new_start_gps != st.session_state.temp_start_val:
+                 st.session_state.temp_start_val = new_start_gps
+                 st.rerun()
+
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
-    # --- ช่องกรอกพิกัด ---
-    m_start_val = st.text_input("Lat/Long Start", value=default_loc, placeholder="Lat, Lon", key="m_start_input")
-    m_stop_val = st.text_input("Lat/Long Stop", placeholder="Lat, Lon", key="m_stop_input")
+    # ---------------------------------------------
+    # ส่วนรับค่าพิกัดสิ้นสุด (Stop)
+    # ---------------------------------------------
+    st.markdown("**📍 พิกัดสิ้นสุด (Stop)**")
+    
+    col_stop_txt, col_stop_gps = st.columns([5, 1])
+    
+    with col_stop_txt:
+        m_stop_val = st.text_input(
+            "Lat/Long Stop", 
+            value=st.session_state.temp_stop_val, 
+            placeholder="Lat, Lon", 
+            key="m_stop_input",
+            label_visibility="collapsed"
+        )
+        st.session_state.temp_stop_val = m_stop_val
+        
+    with col_stop_gps:
+         loc_stop = streamlit_geolocation()
+         if loc_stop and loc_stop.get('latitude') is not None:
+             new_stop_gps = f"{loc_stop['latitude']}, {loc_stop['longitude']}"
+             if new_stop_gps != st.session_state.temp_stop_val:
+                 st.session_state.temp_stop_val = new_stop_gps
+                 st.rerun()
     
     st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
     
+    # ---------------------------------------------
+    # ปุ่มประมวลผล (Process)
+    # ---------------------------------------------
     if st.button("Check Overlap", type="primary", use_container_width=True):
-        if not main_df.empty and m_start_val and m_stop_val:
+        if not main_df.empty and st.session_state.temp_start_val and st.session_state.temp_stop_val:
             try:
-                s_parts = m_start_val.split(',')
-                e_parts = m_stop_val.split(',')
+                s_parts = st.session_state.temp_start_val.split(',')
+                e_parts = st.session_state.temp_stop_val.split(',')
                 new_start = (float(s_parts[0].strip()), float(s_parts[1].strip()))
                 new_stop = (float(e_parts[0].strip()), float(e_parts[1].strip()))
                 
